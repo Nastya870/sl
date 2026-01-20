@@ -5,3 +5,6 @@ export { default as PurchasesTable } from './PurchasesTable';
 export { default as MaterialsTable } from './MaterialsTable';
 export { default as WorksTable } from './WorksTable';
 export { default as CounterpartiesTable } from './CounterpartiesTable';
+export { default as WorkCompletionActsTable } from './WorkCompletionActsTable';
+export { default as PermissionsTable } from './PermissionsTable';
+export { default as EstimatePurchasesTable } from './EstimatePurchasesTable';

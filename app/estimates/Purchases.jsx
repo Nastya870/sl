@@ -25,12 +25,12 @@ import {
 import { estimateColors as colors } from 'shared/ui/themes/estimateStyle';
 
 // Hooks
-import { usePurchases } from './hooks/usePurchases';
+import { useEstimatePurchases } from 'app/features/estimates/useEstimatePurchases';
 
 // Components
 import AddPurchaseDialog from './components/AddPurchaseDialog';
 import ExtraMaterialDialog from './components/ExtraMaterialDialog';
-import PurchasesTable from './components/PurchasesTable';
+import EstimatePurchasesTable from 'app/widgets/EstimatePurchasesTable';
 import PurchasesSummary from './components/PurchasesSummary';
 import ImportDialog from 'shared/ui/components/ImportDialog';
 import { useNotifications } from 'contexts/NotificationsContext';
@@ -68,7 +68,7 @@ const Purchases = ({ estimateId, projectId }) => {
     handleExportCSV,
     handleImportCSV,
     handleImportSuccess
-  } = usePurchases(estimateId, projectId);
+  } = useEstimatePurchases(estimateId, projectId);
 
   const { success, info, error: showError } = useNotifications();
 
@@ -310,11 +310,12 @@ const Purchases = ({ estimateId, projectId }) => {
         {!loading && purchasesGenerated && (
           <>
             <Box sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden', mb: 2 }}>
-              <PurchasesTable
+              <EstimatePurchasesTable
                 regularMaterials={regularMaterials}
                 extraMaterials={extraMaterials}
                 getPurchaseStatus={getPurchaseStatus}
                 onOpenAddDialog={handleOpenAddDialog}
+                loading={loading}
               />
             </Box>
 

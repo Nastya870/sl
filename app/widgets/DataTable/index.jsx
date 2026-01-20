@@ -22,34 +22,40 @@ const DataTable = ({
   stickyHeader = false,
   containerSx = {},
   onRowClick,
-  renderRow
+  renderRow,
+  header,
+  rowSx
 }) => {
   return (
     <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid #E5E7EB', borderRadius: '8px', overflowX: 'auto', ...containerSx }}>
       <Table stickyHeader={stickyHeader} sx={{ minWidth: 650, ...sx }} aria-label="data table">
         <TableHead>
-          <TableRow>
-            {columns.map((column) => (
-              <TableCell
-                key={column.key || column.id}
-                align={column.align || 'left'}
-                style={{ minWidth: column.width }}
-                sx={{
-                  py: 1.5,
-                  fontSize: '0.75rem',
-                  fontWeight: 600,
-                  textTransform: 'uppercase',
-                  color: '#6B7280',
-                  bgcolor: '#F9FAFB',
-                  borderBottom: '1px solid #E5E7EB',
-                  whiteSpace: 'nowrap',
-                  ...column.sx
-                }}
-              >
-                {column.label}
-              </TableCell>
-            ))}
-          </TableRow>
+          {header ? (
+            header
+          ) : (
+            <TableRow>
+              {columns.map((column) => (
+                <TableCell
+                  key={column.key || column.id}
+                  align={column.align || 'left'}
+                  style={{ minWidth: column.width }}
+                  sx={{
+                    py: 1.5,
+                    fontSize: '0.75rem',
+                    fontWeight: 600,
+                    textTransform: 'uppercase',
+                    color: '#6B7280',
+                    bgcolor: '#F9FAFB',
+                    borderBottom: '1px solid #E5E7EB',
+                    whiteSpace: 'nowrap',
+                    ...column.sx
+                  }}
+                >
+                  {column.label}
+                </TableCell>
+              ))}
+            </TableRow>
+          )}
         </TableHead>
         <TableBody>
           {isLoading ? (
@@ -67,6 +73,8 @@ const DataTable = ({
               }
 
               const key = typeof rowKey === 'function' ? rowKey(row) : row[rowKey];
+              const additionalRowSx = typeof rowSx === 'function' ? rowSx(row, index) : rowSx;
+
               return (
                 <TableRow
                   key={key}
@@ -77,7 +85,8 @@ const DataTable = ({
                     '&:last-child td, &:last-child th': { border: 0 },
                     transition: 'background-color 0.15s ease',
                     '&:hover': { bgcolor: '#F9FAFB' },
-                    ...((onRowClick && { '&:hover': { bgcolor: '#F3F4F6' } }))
+                    ...((onRowClick && { '&:hover': { bgcolor: '#F3F4F6' } })),
+                    ...additionalRowSx
                   }}
                 >
                   {columns.map((column) => (
@@ -136,7 +145,9 @@ DataTable.propTypes = {
   stickyHeader: PropTypes.bool,
   containerSx: PropTypes.object,
   onRowClick: PropTypes.func,
-  renderRow: PropTypes.func
+  renderRow: PropTypes.func,
+  header: PropTypes.node,
+  rowSx: PropTypes.oneOfType([PropTypes.object, PropTypes.func])
 };
 
 export default DataTable;
