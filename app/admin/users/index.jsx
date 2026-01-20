@@ -1,45 +1,29 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 
 // material-ui
 import { useTheme } from '@mui/material/styles';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Paper from '@mui/material/Paper';
-import Chip from '@mui/material/Chip';
-import IconButton from '@mui/material/IconButton';
 import InputAdornment from '@mui/material/InputAdornment';
 import TextField from '@mui/material/TextField';
-import Stack from '@mui/material/Stack';
-import Table from '@mui/material/Table';
-import TableBody from '@mui/material/TableBody';
-import TableCell from '@mui/material/TableCell';
-import TableContainer from '@mui/material/TableContainer';
-import TableHead from '@mui/material/TableHead';
 import TablePagination from '@mui/material/TablePagination';
-import TableRow from '@mui/material/TableRow';
 import Typography from '@mui/material/Typography';
-import Tooltip from '@mui/material/Tooltip';
 import Alert from '@mui/material/Alert';
-import CircularProgress from '@mui/material/CircularProgress';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
 
 // project imports
-import { getAllUsers, deleteUser } from 'api/users';
 import UserDialog from './UserDialog';
 import RolesDialog from './RolesDialog';
+import { UsersTable } from 'app/widgets';
 
 // assets
 import {
   IconSearch,
   IconUserPlus,
-  IconEdit,
-  IconTrash,
-  IconShield,
-  IconCircleCheck,
-  IconCircleX,
   IconUsers
 } from '@tabler/icons-react';
 
@@ -48,62 +32,30 @@ import {
 const UsersManagement = () => {
   const theme = useTheme();
 
-  // State
-  const [users, setUsers] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [search, setSearch] = useState('');
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(25);
-  const [totalUsers, setTotalUsers] = useState(0);
+  // Feature Hook
+  const {
+      users,
+      loading,
+      error,
+      page,
+      rowsPerPage,
+      totalUsers,
+      search,
+      handleSearchChange,
+      handleChangePage,
+      handleChangeRowsPerPage,
+      handleDeleteUser,
+      refresh
+  } = useUsersTableData();
 
   // Dialogs
   const [userDialogOpen, setUserDialogOpen] = useState(false);
   const [rolesDialogOpen, setRolesDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
-
-  // Fetch users
-  const fetchUsers = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const response = await getAllUsers({
-        page: page + 1,
-        pageSize: rowsPerPage,
-        search
-      });
-
-      setUsers(response.data || []);
-      setTotalUsers(response.total || 0);
-    } catch (err) {
-      console.error('Error fetching users:', err);
-      setError(err.response?.data?.message || 'Ошибка загрузки пользователей');
-    } finally {
-      setLoading(false);
-    }
-  }, [page, rowsPerPage, search]);
-
-  useEffect(() => {
-    fetchUsers();
-  }, [fetchUsers]);
+  const [actionError, setActionError] = useState(null);
 
   // Handlers
-  const handleSearchChange = (event) => {
-    setSearch(event.target.value);
-    setPage(0);
-  };
-
-  const handleChangePage = (event, newPage) => {
-    setPage(newPage);
-  };
-
-  const handleChangeRowsPerPage = (event) => {
-    setRowsPerPage(parseInt(event.target.value, 10));
-    setPage(0);
-  };
-
   const handleCreateUser = () => {
     setSelectedUser(null);
     setUserDialogOpen(true);
@@ -128,46 +80,25 @@ const UsersManagement = () => {
     if (!selectedUser) return;
 
     try {
-      await deleteUser(selectedUser.id);
+      await handleDeleteUser(selectedUser.id);
       setDeleteDialogOpen(false);
       setSelectedUser(null);
-      fetchUsers();
     } catch (err) {
       console.error('Error deleting user:', err);
-      setError(err.response?.data?.message || 'Ошибка удаления пользователя');
+      setActionError(err.response?.data?.message || 'Ошибка удаления пользователя');
     }
   };
 
   const handleUserSaved = () => {
     setUserDialogOpen(false);
     setSelectedUser(null);
-    fetchUsers();
+    refresh();
   };
 
   const handleRolesSaved = () => {
     setRolesDialogOpen(false);
     setSelectedUser(null);
-    fetchUsers();
-  };
-
-  // Get role names
-  const getRoleNames = (roles) => {
-    if (!roles || roles.length === 0) return 'Нет ролей';
-
-    const roleMap = {
-      super_admin: 'Супер Админ',
-      admin: 'Админ',
-      manager: 'Менеджер',
-      estimator: 'Сметчик',
-      supplier: 'Снабженец'
-    };
-
-    return roles.map((role) => roleMap[role.name] || role.name).join(', ');
-  };
-
-  // Get role badge styles - единый стиль фиолетовый
-  const getRoleBadgeStyle = (roles) => {
-    return { bgcolor: '#F3E8FF', color: '#6D28D9' };
+    refresh();
   };
 
   return (
@@ -262,163 +193,14 @@ const UsersManagement = () => {
 
         {/* Users Table */}
         <Paper elevation={0} sx={{ border: '1px solid #E5E7EB', borderRadius: '8px', overflow: 'hidden', display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
-          <TableContainer sx={{ flex: 1, overflow: 'auto' }}>
-            <Table stickyHeader>
-              <TableHead>
-                <TableRow>
-                  <TableCell sx={{ bgcolor: '#F9FAFB', fontWeight: 500, fontSize: '0.75rem', color: '#374151', py: 1, borderBottom: '1px solid #E5E7EB' }}>
-                    Имя
-                  </TableCell>
-                  <TableCell sx={{ bgcolor: '#F9FAFB', fontWeight: 500, fontSize: '0.75rem', color: '#374151', py: 1, borderBottom: '1px solid #E5E7EB' }}>
-                    Email
-                  </TableCell>
-                  <TableCell sx={{ bgcolor: '#F9FAFB', fontWeight: 500, fontSize: '0.75rem', color: '#374151', py: 1, borderBottom: '1px solid #E5E7EB' }}>
-                    Телефон
-                  </TableCell>
-                  <TableCell sx={{ bgcolor: '#F9FAFB', fontWeight: 500, fontSize: '0.75rem', color: '#374151', py: 1, borderBottom: '1px solid #E5E7EB' }}>
-                    Роли
-                  </TableCell>
-                  <TableCell sx={{ bgcolor: '#F9FAFB', fontWeight: 500, fontSize: '0.75rem', color: '#374151', py: 1, borderBottom: '1px solid #E5E7EB' }}>
-                    Статус
-                  </TableCell>
-                  <TableCell align="right" sx={{ bgcolor: '#F9FAFB', fontWeight: 500, fontSize: '0.75rem', color: '#374151', py: 1, pr: 2, borderBottom: '1px solid #E5E7EB' }}>
-                    Действия
-                  </TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {loading ? (
-                  <TableRow>
-                    <TableCell colSpan={6} align="center" sx={{ py: 4, borderBottom: 'none' }}>
-                      <CircularProgress size={32} />
-                    </TableCell>
-                  </TableRow>
-                ) : users.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={6} align="center" sx={{ py: 4, borderBottom: 'none' }}>
-                      <Typography sx={{ color: '#6B7280', fontSize: '0.875rem' }}>
-                        Пользователи не найдены
-                      </Typography>
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  users.map((user, index) => (
-                    <TableRow 
-                      key={user.id} 
-                      sx={{ 
-                        height: '52px',
-                        bgcolor: index % 2 === 1 ? '#FAF9FF' : 'transparent',
-                        transition: 'background-color 0.15s ease',
-                        '&:hover': { bgcolor: '#F3F4F6' }
-                      }}
-                    >
-                      <TableCell sx={{ py: '10px', borderBottom: '1px solid #F3F4F6' }}>
-                        <Typography sx={{ fontSize: '0.8125rem', fontWeight: 500, color: '#374151' }}>
-                          {user.fullName || 'Не указано'}
-                        </Typography>
-                      </TableCell>
-                      <TableCell sx={{ py: '10px', borderBottom: '1px solid #F3F4F6' }}>
-                        <Typography sx={{ fontSize: '0.8125rem', color: '#374151' }}>
-                          {user.email}
-                        </Typography>
-                      </TableCell>
-                      <TableCell sx={{ py: '10px', borderBottom: '1px solid #F3F4F6' }}>
-                        <Typography sx={{ fontSize: '0.8125rem', color: '#374151' }}>
-                          {user.phone || '—'}
-                        </Typography>
-                      </TableCell>
-                      <TableCell sx={{ py: '10px', borderBottom: '1px solid #F3F4F6' }}>
-                        <Box
-                          sx={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            borderRadius: '6px',
-                            px: '8px',
-                            py: '3px',
-                            fontSize: '12px',
-                            fontWeight: 500,
-                            ...getRoleBadgeStyle(user.roles)
-                          }}
-                        >
-                          {getRoleNames(user.roles)}
-                        </Box>
-                      </TableCell>
-                      <TableCell sx={{ py: '10px', borderBottom: '1px solid #F3F4F6' }}>
-                        {user.isActive ? (
-                          <Box
-                            sx={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '4px',
-                              bgcolor: '#DCFCE7',
-                              color: '#15803D',
-                              borderRadius: '6px',
-                              px: '8px',
-                              py: '3px',
-                              fontSize: '12px',
-                              fontWeight: 500
-                            }}
-                          >
-                            <IconCircleCheck size={14} style={{ color: '#15803D' }} />
-                            Активен
-                          </Box>
-                        ) : (
-                          <Box
-                            sx={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '4px',
-                              bgcolor: '#F3F4F6',
-                              color: '#6B7280',
-                              borderRadius: '6px',
-                              px: '8px',
-                              py: '3px',
-                              fontSize: '12px',
-                              fontWeight: 500
-                            }}
-                          >
-                            <IconCircleX size={14} />
-                            Неактивен
-                          </Box>
-                        )}
-                      </TableCell>
-                      <TableCell align="right" sx={{ py: '10px', pr: 2, borderBottom: '1px solid #F3F4F6' }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '12px' }}>
-                          <Tooltip title="Управление ролями">
-                            <IconButton
-                              size="small"
-                              onClick={() => handleManageRoles(user)}
-                              sx={{ width: 30, height: 30, color: '#6D28D9', '&:hover': { color: '#5B21B6', bgcolor: '#F3E8FF' } }}
-                            >
-                              <IconShield size={18} />
-                            </IconButton>
-                          </Tooltip>
-                          <Tooltip title="Редактировать">
-                            <IconButton
-                              size="small"
-                              onClick={() => handleEditUser(user)}
-                              sx={{ width: 30, height: 30, color: '#6B7280', '&:hover': { color: '#374151', bgcolor: '#F3F4F6' } }}
-                            >
-                              <IconEdit size={18} />
-                            </IconButton>
-                          </Tooltip>
-                          <Tooltip title="Удалить">
-                            <IconButton
-                              size="small"
-                              onClick={() => handleDeleteClick(user)}
-                              sx={{ width: 30, height: 30, color: '#EF4444', '&:hover': { color: '#DC2626', bgcolor: '#FEF2F2' } }}
-                            >
-                              <IconTrash size={18} />
-                            </IconButton>
-                          </Tooltip>
-                        </Box>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
+          <UsersTable
+            users={users}
+            isLoading={loading}
+            onManageRoles={handleManageRoles}
+            onEdit={handleEditUser}
+            onDelete={handleDeleteClick}
+            containerSx={{ flex: 1, border: 'none', borderRadius: 0, overflow: 'auto' }}
+          />
 
           {/* Pagination */}
           <TablePagination

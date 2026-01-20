@@ -1,67 +1,31 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
-  Box, Typography, Paper, Table, TableBody, TableCell, TableHead, TableRow, TableContainer,
-  Button, Stack, Chip, TextField, InputAdornment, IconButton, Tooltip,
-  CircularProgress, Alert
+  Box, Typography, Paper, Button, TextField, InputAdornment, Alert
 } from '@mui/material';
 import {
-  IconUsers, IconPlus, IconSearch, IconEdit, IconTrash, IconBuilding, IconUser
+  IconUsers, IconPlus, IconSearch, IconBuilding, IconUser
 } from '@tabler/icons-react';
-import counterpartiesAPI from 'api/counterparties';
 import CounterpartyModal from './CounterpartyModal';
+import { CounterpartiesTable } from 'app/widgets';
+import { useCounterpartiesTableData } from 'app/features/counterparties/useCounterpartiesTableData';
 
 const Counterparties = () => {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [counterparties, setCounterparties] = useState([]);
-  const [filteredCounterparties, setFilteredCounterparties] = useState([]);
-  const [search, setSearch] = useState('');
-  const [entityTypeFilter, setEntityTypeFilter] = useState('all');
+  // Feature Hook
+  const {
+      counterparties,
+      loading,
+      error,
+      search,
+      setSearch,
+      entityTypeFilter,
+      setEntityTypeFilter,
+      deleteCounterparty,
+      refresh,
+      setError
+  } = useCounterpartiesTableData();
+
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedCounterparty, setSelectedCounterparty] = useState(null);
-
-  useEffect(() => {
-    loadCounterparties();
-  }, []);
-
-  useEffect(() => {
-    filterCounterparties();
-  }, [counterparties, search, entityTypeFilter]);
-
-  const loadCounterparties = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const data = await counterpartiesAPI.getAll();
-      setCounterparties(Array.isArray(data) ? data : []);
-    } catch (err) {
-      console.error('Error loading counterparties:', err);
-      setError('Не удалось загрузить контрагентов');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const filterCounterparties = () => {
-    let filtered = [...counterparties];
-    
-    if (entityTypeFilter !== 'all') {
-      filtered = filtered.filter(c => c.entityType === entityTypeFilter);
-    }
-    
-    if (search) {
-      const searchLower = search.toLowerCase();
-      filtered = filtered.filter(c =>
-        c.fullName?.toLowerCase().includes(searchLower) ||
-        c.companyName?.toLowerCase().includes(searchLower) ||
-        c.inn?.includes(search) ||
-        c.phone?.includes(search) ||
-        c.email?.toLowerCase().includes(searchLower)
-      );
-    }
-    
-    setFilteredCounterparties(filtered);
-  };
 
   const handleCreate = () => {
     setSelectedCounterparty(null);
@@ -77,8 +41,7 @@ const Counterparties = () => {
     if (!window.confirm('Вы уверены, что хотите удалить этого контрагента?')) return;
     
     try {
-      await counterpartiesAPI.delete(id);
-      await loadCounterparties();
+      await deleteCounterparty(id);
     } catch (err) {
       console.error('Error deleting counterparty:', err);
       setError('Не удалось удалить контрагента');
@@ -91,11 +54,9 @@ const Counterparties = () => {
   };
 
   const handleModalSuccess = () => {
-    loadCounterparties();
+    refresh();
     handleModalClose();
   };
-
-  const getEntityTypeLabel = (type) => type === 'individual' ? 'Физ. лицо' : 'Юр. лицо';
 
   // Табы фильтрации
   const tabs = [
@@ -219,120 +180,15 @@ const Counterparties = () => {
 
         {/* Таблица */}
         <Box sx={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
-          {loading ? (
-            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
-              <CircularProgress />
-            </Box>
-          ) : filteredCounterparties.length === 0 ? (
-            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
-              <Typography sx={{ color: '#6B7280', fontSize: '0.9375rem' }}>
-                {search || entityTypeFilter !== 'all' ? 'Контрагенты не найдены' : 'Нет контрагентов. Добавьте первого контрагента.'}
-              </Typography>
-            </Box>
-          ) : (
-            <Paper elevation={0} sx={{ border: '1px solid #E5E7EB', borderRadius: '8px', overflow: 'hidden', height: '100%' }}>
-              <TableContainer sx={{ height: '100%', overflowX: 'hidden' }}>
-                <Table stickyHeader data-testid="counterparties-table" sx={{ tableLayout: 'fixed' }}>
-                  <TableHead>
-                    <TableRow>
-                      <TableCell sx={{ width: '120px', bgcolor: '#F9FAFB', fontWeight: 500, fontSize: '0.75rem', color: '#374151', py: 1.25, pl: 2, borderBottom: '1px solid #E5E7EB' }}>
-                        Тип
-                      </TableCell>
-                      <TableCell sx={{ bgcolor: '#F9FAFB', fontWeight: 500, fontSize: '0.75rem', color: '#374151', py: 1.25, borderBottom: '1px solid #E5E7EB' }}>
-                        Наименование / ФИО
-                      </TableCell>
-                      <TableCell sx={{ width: '150px', bgcolor: '#F9FAFB', fontWeight: 500, fontSize: '0.75rem', color: '#374151', py: 1.25, borderBottom: '1px solid #E5E7EB' }}>
-                        ИНН / Паспорт
-                      </TableCell>
-                      <TableCell sx={{ width: '140px', bgcolor: '#F9FAFB', fontWeight: 500, fontSize: '0.75rem', color: '#374151', py: 1.25, borderBottom: '1px solid #E5E7EB' }}>
-                        Телефон
-                      </TableCell>
-                      <TableCell sx={{ width: '180px', bgcolor: '#F9FAFB', fontWeight: 500, fontSize: '0.75rem', color: '#374151', py: 1.25, borderBottom: '1px solid #E5E7EB' }}>
-                        Email
-                      </TableCell>
-                      <TableCell align="center" sx={{ width: '90px', bgcolor: '#F9FAFB', fontWeight: 500, fontSize: '0.75rem', color: '#374151', py: 1.25, pr: 2, borderBottom: '1px solid #E5E7EB' }}>
-                        Действия
-                      </TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {filteredCounterparties.map((counterparty, index) => (
-                      <TableRow 
-                        key={counterparty.id} 
-                        sx={{ 
-                          bgcolor: index % 2 === 1 ? '#FAF9FF' : 'transparent',
-                          transition: 'background-color 0.15s ease',
-                          '&:hover': { bgcolor: '#F5F3FF' }
-                        }}
-                      >
-                        <TableCell sx={{ py: '8px', pl: 2, borderBottom: '1px solid #F3F4F6' }}>
-                          <Box
-                            sx={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '4px',
-                              bgcolor: '#F3E8FF',
-                              color: '#7C3AED',
-                              borderRadius: '4px',
-                              px: '8px',
-                              py: '3px',
-                              fontSize: '11.5px',
-                              fontWeight: 500
-                            }}
-                          >
-                            {counterparty.entityType === 'individual' ? <IconUser size={12} /> : <IconBuilding size={12} />}
-                            {getEntityTypeLabel(counterparty.entityType)}
-                          </Box>
-                        </TableCell>
-                        <TableCell sx={{ py: '8px', borderBottom: '1px solid #F3F4F6' }}>
-                          <Typography sx={{ fontSize: '0.8125rem', fontWeight: 500, color: '#374151' }}>
-                            {counterparty.entityType === 'individual' ? counterparty.fullName : counterparty.companyName}
-                          </Typography>
-                        </TableCell>
-                        <TableCell sx={{ py: '8px', borderBottom: '1px solid #F3F4F6' }}>
-                          <Typography sx={{ fontSize: '0.8125rem', color: '#374151', fontFamily: 'monospace' }}>
-                            {counterparty.entityType === 'individual' ? counterparty.passportSeriesNumber : counterparty.inn}
-                          </Typography>
-                        </TableCell>
-                        <TableCell sx={{ py: '8px', borderBottom: '1px solid #F3F4F6' }}>
-                          <Typography sx={{ fontSize: '0.8125rem', color: '#374151' }}>
-                            {counterparty.phone || '—'}
-                          </Typography>
-                        </TableCell>
-                        <TableCell sx={{ py: '8px', borderBottom: '1px solid #F3F4F6' }}>
-                          <Typography sx={{ fontSize: '0.8125rem', color: '#374151', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {counterparty.email || '—'}
-                          </Typography>
-                        </TableCell>
-                        <TableCell align="center" sx={{ py: '8px', pr: 2, borderBottom: '1px solid #F3F4F6' }}>
-                          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '14px' }}>
-                            <Tooltip title="Редактировать">
-                              <IconButton 
-                                size="small" 
-                                onClick={() => handleEdit(counterparty)}
-                                sx={{ width: 28, height: 28, color: '#6B7280', '&:hover': { color: '#374151', bgcolor: '#F3F4F6' } }}
-                              >
-                                <IconEdit size={16} />
-                              </IconButton>
-                            </Tooltip>
-                            <Tooltip title="Удалить">
-                              <IconButton 
-                                size="small" 
-                                onClick={() => handleDelete(counterparty.id)}
-                                sx={{ width: 28, height: 28, color: '#EF4444', '&:hover': { color: '#DC2626', bgcolor: '#FEF2F2' } }}
-                              >
-                                <IconTrash size={16} />
-                              </IconButton>
-                            </Tooltip>
-                          </Box>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-            </Paper>
-          )}
+          <Box sx={{ border: '1px solid #E5E7EB', borderRadius: '8px', overflow: 'hidden', height: '100%' }}>
+            <CounterpartiesTable
+              counterparties={counterparties}
+              onEdit={handleEdit}
+              onDelete={handleDelete}
+              isLoading={loading}
+              emptyText={search || entityTypeFilter !== 'all' ? 'Контрагенты не найдены' : 'Нет контрагентов. Добавьте первого контрагента.'}
+            />
+          </Box>
         </Box>
       </Paper>
 

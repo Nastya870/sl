@@ -40,159 +40,17 @@ import { IconPlus, IconEdit, IconTrash, IconSearch, IconExternalLink, IconWorld,
 import EmptyState from './EmptyState';
 import { emptyMaterial } from './mockData';
 import materialsAPI from 'api/materials';
-import searchAPI from 'api/search'; // ✅ AI-поиск (Pinecone hybrid)
 import materialsImportExportAPI from 'api/materialsImportExport';
 import ImportDialog from 'shared/ui/components/ImportDialog';
-import { fullTextSearch, highlightMatches } from 'shared/lib/utils/fullTextSearch';
+import { highlightMatches } from 'shared/lib/utils/fullTextSearch';
 import { useNotifications } from 'contexts/NotificationsContext';
 import useAuth from 'shared/lib/hooks/useAuth';
+import { MaterialsTable } from 'app/widgets';
+import { useMaterialsTableData } from 'app/features/references/useMaterialsTableData';
+import { HighlightText, formatPrice } from 'app/entities/material';
 
 // Code Splitting: Lazy load MaterialDialog (загружается только при открытии)
 const MaterialDialog = lazy(() => import('./MaterialDialog'));
-
-// Компонент подсветки совпадений в тексте
-const HighlightText = ({ text, query }) => {
-  if (!query || query.trim().length === 0) {
-    return <>{text}</>;
-  }
-
-  const parts = highlightMatches(text, query);
-
-  return (
-    <>
-      {parts.map((part, index) => (
-        part.match ? (
-          <Box
-            key={index}
-            component="span"
-            sx={{
-              bgcolor: '#FEF3C7',
-              color: '#92400E',
-              borderRadius: '2px',
-              px: 0.25
-            }}
-          >
-            {part.text}
-          </Box>
-        ) : (
-          <span key={index}>{part.text}</span>
-        )
-      ))}
-    </>
-  );
-};
-
-// ==============================|| MEMOIZED TABLE ROW ||============================== //
-
-const MaterialTableRow = React.memo(({ material, formatPrice, showImageColumn, handleOpenEdit, handleDeleteMaterial }) => {
-  return (
-    <TableRow sx={{ '&:hover': { bgcolor: '#F3F4F6' } }}>
-      <TableCell sx={{ width: '100px', py: 1, pl: 2, borderBottom: '1px solid #F3F4F6' }}>
-        <Typography sx={{ fontSize: '0.8125rem', fontWeight: 500, color: '#374151' }}>
-          {material.code || '—'}
-        </Typography>
-      </TableCell>
-      {showImageColumn && (
-        <TableCell sx={{ width: '60px', py: 1, borderBottom: '1px solid #F3F4F6' }}>
-          {material.image_url ? (
-            <Box
-              component="img"
-              src={material.image_url}
-              alt={material.name}
-              sx={{
-                width: 40,
-                height: 40,
-                objectFit: 'cover',
-                borderRadius: 1,
-                border: '1px solid #E5E7EB'
-              }}
-            />
-          ) : (
-            <Box
-              sx={{
-                width: 40,
-                height: 40,
-                bgcolor: '#F3F4F6',
-                borderRadius: 1,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}
-            >
-              <Typography sx={{ fontSize: '0.625rem', color: '#9CA3AF' }}>—</Typography>
-            </Box>
-          )}
-        </TableCell>
-      )}
-      <TableCell sx={{ width: 'auto', minWidth: '250px', py: 1, borderBottom: '1px solid #F3F4F6' }}>
-        <Stack direction="row" alignItems="center" spacing={0.75}>
-          {material.isGlobal && (
-            <Tooltip title="Глобальный материал" arrow placement="top">
-              <IconWorld size={13} style={{ color: '#9CA3AF', flexShrink: 0 }} />
-            </Tooltip>
-          )}
-          <Typography sx={{ fontSize: '0.8125rem', color: '#374151', fontWeight: 500 }}>
-            {material.name}
-          </Typography>
-        </Stack>
-      </TableCell>
-      <TableCell sx={{ minWidth: '180px', py: 1, borderBottom: '1px solid #F3F4F6' }}>
-        <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-          {material.category_full_path ? (
-            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, alignItems: 'center' }}>
-              {material.category_full_path.split(' / ').map((part, idx, arr) => (
-                <React.Fragment key={idx}>
-                  <Typography sx={{ fontSize: '0.75rem', color: idx === arr.length - 1 ? '#374151' : '#9CA3AF', fontWeight: idx === arr.length - 1 ? 500 : 400 }}>
-                    {part}
-                  </Typography>
-                  {idx < arr.length - 1 && (
-                    <Typography sx={{ fontSize: '0.75rem', color: '#D1D5DB' }}>›</Typography>
-                  )}
-                </React.Fragment>
-              ))}
-            </Box>
-          ) : (
-            <Typography sx={{ fontSize: '0.75rem', color: '#374151' }}>
-              {material.category || '—'}
-            </Typography>
-          )}
-        </Box>
-      </TableCell>
-      <TableCell align="center" sx={{ width: '80px', py: 1, borderBottom: '1px solid #F3F4F6' }}>
-        <Typography sx={{ fontSize: '0.8125rem', color: '#374151' }}>{material.unit || '—'}</Typography>
-      </TableCell>
-      <TableCell align="right" sx={{ width: '120px', py: 1, borderBottom: '1px solid #F3F4F6' }}>
-        <Typography sx={{ fontSize: '0.8125rem', fontWeight: 500, color: '#374151' }}>
-          {formatPrice(material.base_price || material.basePrice || material.price)}
-        </Typography>
-      </TableCell>
-      <TableCell align="center" sx={{ width: '90px', py: 1, pr: 2, borderBottom: '1px solid #F3F4F6' }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
-          <IconButton
-            size="small"
-            onClick={() => handleOpenEdit(material)}
-            sx={{ width: 26, height: 26, color: '#6B7280', '&:hover': { color: '#374151', bgcolor: '#F3F4F6' } }}
-          >
-            <IconEdit size={14} />
-          </IconButton>
-          <IconButton
-            size="small"
-            onClick={() => handleDeleteMaterial(material.id)}
-            sx={{ width: 26, height: 26, color: '#EF4444', '&:hover': { color: '#DC2626', bgcolor: '#FEF2F2' } }}
-          >
-            <IconTrash size={14} />
-          </IconButton>
-        </Box>
-      </TableCell>
-    </TableRow>
-  );
-}, (prevProps, nextProps) => {
-  return prevProps.material.id === nextProps.material.id &&
-    prevProps.material.name === nextProps.material.name &&
-    prevProps.showImageColumn === nextProps.showImageColumn;
-});
-
-MaterialTableRow.displayName = 'MaterialTableRow';
 
 // ==============================|| MATERIALS REFERENCE PAGE ||============================== //
 
@@ -200,241 +58,41 @@ const MaterialsReferencePage = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
-  // State
-  const [materials, setMaterials] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [openDialog, setOpenDialog] = useState(false);
-  const [editMode, setEditMode] = useState(false);
-  const [currentMaterial, setCurrentMaterial] = useState(emptyMaterial);
-  const [searchInput, setSearchInput] = useState(''); // Для input (мгновенно)
-  const [searchTerm, setSearchTerm] = useState(''); // Для фильтрации (debounced)
-  // Восстанавливаем фильтр из storage или используем 'global' по умолчанию
-  const [globalFilter, setGlobalFilter] = useState(() => {
-    return storageService.get('materialsGlobalFilter', 'global');
-  });
   const { success, error: showError, info: showInfo } = useNotifications();
   const { isSuperAdmin } = useAuth();
 
-  // Пагинация для Infinite Scroll
-  const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(true);
-  const [totalRecords, setTotalRecords] = useState(0);
-  const INITIAL_PAGE_SIZE = 30;
-  const PAGE_SIZE = 30; // Размер порции при скролле
-  const [initialLoading, setInitialLoading] = useState(true); // Первая загрузка
+  // Feature Hook
+  const {
+      materials,
+      loading,
+      initialLoading,
+      error,
+      hasMore,
+      totalRecords,
+      searchTerm,
+      globalFilter,
+      setGlobalFilter,
+      onSearch,
+      loadMore,
+      refresh,
+      createMaterial,
+      updateMaterial,
+      deleteMaterial,
+      scrollContainerRef,
+      loadMoreTriggerRef
+  } = useMaterialsTableData();
 
-  // 🔧 Ref для контейнера со скроллом
-  const scrollContainerRef = useRef(null);
-
-  // 🎯 Ref для триггера загрузки (Intersection Observer)
-  const loadMoreTriggerRef = useRef(null);
+  // Local State
+  const [openDialog, setOpenDialog] = useState(false);
+  const [editMode, setEditMode] = useState(false);
+  const [currentMaterial, setCurrentMaterial] = useState(emptyMaterial);
+  const [searchInput, setSearchInput] = useState('');
 
   // Управление видимостью колонок
   const [showImageColumn, setShowImageColumn] = useState(true);
   const [showSupplierColumn, setShowSupplierColumn] = useState(true);
 
-  // 🧠 AI-поиск материалов через GPT (понимает контекст: "стяжка пола" → цемент, маяки...)
-  const aiSearchMaterials = useCallback(async (query) => {
-    try {
-      setLoading(true);
-      console.log(`🧠 Умный AI-поиск: "${query}" (scope: ${globalFilter})`);
-
-      // Используем GPT-powered smart search с учётом фильтра global/tenant
-      const aiResponse = await searchAPI.smartMaterials(query, {
-        limit: 100,
-        scope: globalFilter // 'global' или 'tenant'
-      });
-
-      if (aiResponse.success && aiResponse.results?.length > 0) {
-        // Преобразуем AI-результаты в формат материалов
-        const aiMaterials = aiResponse.results.map(r => ({
-          id: r.id,
-          name: r.name,
-          sku: r.sku || null,
-          price: r.price || 0,
-          unit: r.unit || 'шт',
-          category: r.category || null,
-          supplier: r.supplier || null,
-          is_global: r.is_global ?? true,
-          _aiScore: 1,
-          _aiSource: 'smart-gpt',
-          _matchedKeyword: r.matchedKeyword
-        }));
-
-        const keywords = aiResponse.expandedKeywords?.join(', ') || '';
-        console.log(`🧠 GPT ключевые слова: ${keywords}`);
-        console.log(`🧠 AI нашёл ${aiMaterials.length} материалов`);
-
-        setMaterials(aiMaterials);
-        setTotalRecords(aiMaterials.length);
-        setHasMore(false); // AI-поиск возвращает все результаты сразу
-      } else {
-        console.log('🧠 AI не нашёл результатов');
-        setMaterials([]);
-        setTotalRecords(0);
-        setHasMore(false);
-      }
-    } catch (error) {
-      console.warn('⚠️ AI-поиск недоступен, fallback на SQL:', error.message);
-      // Fallback на обычный SQL
-      fetchMaterials(1, true, query);
-    } finally {
-      setLoading(false);
-    }
-  }, [globalFilter]);
-
-  // Debounced поиск (обновляет searchTerm через 300ms после последнего ввода)
-  const debouncedSearch = useMemo(
-    () => debounce((value) => {
-      setSearchTerm(value);
-      // При изменении поискового запроса - используем AI-поиск
-      if (value.trim()) {
-        setMaterials([]);
-        setPage(1);
-        aiSearchMaterials(value.trim()); // 🧠 AI-поиск
-      } else {
-        // Если очистили поиск - загружаем обычные данные
-        setMaterials([]);
-        setPage(1);
-        fetchMaterials(1, true);
-      }
-    }, 400), // 400ms для AI-поиска
-    [globalFilter, aiSearchMaterials]
-  );
-
-  // Очистка debounce при размонтировании
-  useEffect(() => {
-    return () => {
-      debouncedSearch.cancel();
-    };
-  }, [debouncedSearch]);
-
-  // Сохранение фильтра в storage при изменении
-  useEffect(() => {
-    storageService.set('materialsGlobalFilter', globalFilter);
-  }, [globalFilter]);
-
-  // Загрузка материалов из API с пагинацией
-  useEffect(() => {
-    setSearchTerm(''); // Очищаем поиск при смене фильтра
-    fetchMaterials(1, true); // Первая загрузка
-  }, [globalFilter]); // Перезагружаем при изменении фильтра
-
-  const fetchMaterials = async (pageNumber = 1, resetData = false, search = '') => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      const params = {
-        page: pageNumber,
-        pageSize: search ? 1000 : (pageNumber === 1 ? INITIAL_PAGE_SIZE : PAGE_SIZE),
-        skipCount: pageNumber > 1 ? 'true' : 'false' // Пропускаем COUNT(*) на последующих страницах для ускорения
-      };
-      if (globalFilter === 'global') params.isGlobal = 'true';
-      if (globalFilter === 'tenant') params.isGlobal = 'false';
-      if (search) params.search = search; // Серверный поиск по всей БД
-
-      const response = await materialsAPI.getAll(params);
-
-      // ✅ Функция нормализации snake_case → camelCase
-      const normalizeMaterial = (mat) => {
-        const image = mat.image || mat.image_url || mat.imageUrl || '';
-        const price = mat.price !== undefined ? mat.price : (mat.base_price !== undefined ? mat.base_price : mat.basePrice);
-        const showImage = (mat.show_image !== undefined && mat.show_image !== null)
-          ? mat.show_image
-          : (mat.showImage !== undefined && mat.showImage !== null ? mat.showImage : true);
-
-        return {
-          ...mat,
-          image,
-          image_url: image, // Для полной совместимости с мобильной версией
-          price: Number(price) || 0,
-          showImage: showImage === true || showImage === 'true' || showImage === 1,
-          isGlobal: mat.is_global !== undefined ? mat.is_global : mat.isGlobal,
-          productUrl: mat.product_url || mat.productUrl || '',
-          category_full_path: mat.category_full_path || mat.categoryFullPath || null
-        };
-      };
-
-      // Обработка response
-      let newMaterials = [];
-      if (response.data) {
-        newMaterials = response.data.map(normalizeMaterial);
-      } else {
-        // Fallback для старого формата API
-        const data = Array.isArray(response) ? response : [];
-        newMaterials = data.map(normalizeMaterial);
-      }
-
-      // Получаем общее количество
-      // Для последующих страниц (skipCount=true) сервер возвращает total=null, используем кэшированное значение
-      const total = response.total !== null && response.total !== undefined
-        ? response.total
-        : (totalRecords || response.count || newMaterials.length);
-      setTotalRecords(total);
-
-      // Добавляем или заменяем данные
-      if (resetData) {
-        setMaterials(newMaterials);
-        setPage(1);
-        setHasMore(newMaterials.length < total);
-      } else {
-        setMaterials(prev => {
-          const updated = [...prev, ...newMaterials];
-          setHasMore(updated.length < total);
-          return updated;
-        });
-        setPage(pageNumber);
-      }
-
-    } catch (err) {
-      console.error('Error loading materials:', err);
-      setError('Не удалось загрузить материалы. Проверьте подключение к серверу.');
-      // ❌ Не показываем уведомление - ошибка уже отображается на экране
-    } finally {
-      setLoading(false);
-      setInitialLoading(false); // Первая загрузка завершена
-    }
-  };
-
-  // Функция для загрузки следующей страницы (Infinite Scroll)
-  const loadMoreMaterials = useCallback(() => {
-    if (!loading && hasMore) {
-      fetchMaterials(page + 1, false);
-    }
-  }, [loading, hasMore, page]);
-
-  // 🎯 Intersection Observer для автозагрузки при скролле
-  useEffect(() => {
-    if (!loadMoreTriggerRef.current || loading || !hasMore) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        // Когда триггер становится видимым - загружаем ещё данные
-        if (entries[0].isIntersecting && !loading && hasMore) {
-          loadMoreMaterials();
-        }
-      },
-      {
-        root: scrollContainerRef.current, // Привязываем к контейнеру со скроллом
-        rootMargin: '0px 0px 2500px 0px', // Упреждение: 2500px снизу
-        threshold: 0.01
-      }
-    );
-
-    observer.observe(loadMoreTriggerRef.current);
-
-    return () => {
-      observer.disconnect();
-    };
-  }, [loading, hasMore, page, loadMoreMaterials]); // Добавлен loadMoreMaterials в зависимости
-
-  // Отображаемые материалы (фильтрация теперь на сервере через params.search)
-  // Для совместимости оставляем переменную filteredMaterials, но она просто = materials
-  const filteredMaterials = materials;
-
-  // Мемоизированные обработчики (стабильные функции, не пересоздаются при каждом рендере)
+  // Мемоизированные обработчики
   const handleOpenCreate = useCallback(() => {
     setEditMode(false);
     setCurrentMaterial({ ...emptyMaterial, isGlobal: globalFilter === 'global' });
@@ -452,130 +110,32 @@ const MaterialsReferencePage = () => {
     setCurrentMaterial(emptyMaterial);
   }, []);
 
-  // Сохранить материал (OPTIMISTIC UI)
   const handleSaveMaterial = async () => {
-    try {
-      if (editMode) {
-        // OPTIMISTIC UPDATE: обновляем UI мгновенно
-        const previousMaterials = [...materials]; // Backup для rollback
-        const optimisticUpdate = { ...currentMaterial, _optimistic: true };
-
-        setMaterials(materials.map((m) => (m.id === currentMaterial.id ? optimisticUpdate : m)));
-        handleCloseDialog();
-
-        try {
-          // Реальный API call
-          const updated = await materialsAPI.update(currentMaterial.id, currentMaterial);
-
-          // Заменяем optimistic на реальные данные
-          setMaterials(prev => prev.map((m) => (m.id === updated.id ? updated : m)));
-          success('Материал успешно обновлен', currentMaterial.name);
-        } catch (err) {
-          // ROLLBACK: восстанавливаем предыдущее состояние
-          setMaterials(previousMaterials);
-          console.error('Error updating material:', err);
-          showError('Ошибка при обновлении материала', err.response?.data?.message);
-          throw err;
-        }
-      } else {
-        // OPTIMISTIC CREATE: добавляем материал мгновенно с временным ID
-        const optimisticMaterial = {
-          ...currentMaterial,
-          id: `temp-${Date.now()}`, // Временный ID
-          _optimistic: true // Флаг для UI (можем показать skeleton/loading состояние)
-        };
-
-        // Мгновенно обновляем UI
-        setMaterials([optimisticMaterial, ...materials]);
-        handleCloseDialog();
-
-        try {
-          // Отправляем реальный запрос
-          const created = await materialsAPI.create({
-            ...currentMaterial,
-            isGlobal: currentMaterial.isGlobal
-          });
-
-          // Заменяем optimistic на реальный
-          setMaterials(prev => prev.map(m =>
-            m.id === optimisticMaterial.id ? created : m
-          ));
-          success('Материал успешно создан', currentMaterial.name);
-
-          // Обновляем totalRecords для pagination
-          setTotalRecords(prev => prev + 1);
-        } catch (err) {
-          // ROLLBACK: удаляем optimistic материал при ошибке
-          setMaterials(prev => prev.filter(m => m.id !== optimisticMaterial.id));
-          console.error('Error creating material:', err);
-          showError('Ошибка при создании материала', err.response?.data?.message);
-          throw err; // Re-throw для внешнего catch
-        }
-      }
-    } catch (err) {
-      console.error('Error saving material:', err);
-      // Ошибка уже обработана в блоке create
-      if (editMode) {
-        showError('Ошибка при сохранении материала', err.response?.data?.message);
-      }
-    }
-  };
-
-  // Удалить материал (OPTIMISTIC DELETE)
-  const handleDeleteMaterial = async (id) => {
-    if (window.confirm('Вы уверены, что хотите удалить этот материал?')) {
-      // OPTIMISTIC DELETE: удаляем мгновенно из UI
-      const deletedMaterial = materials.find(m => m.id === id);
-      const previousMaterials = [...materials]; // Backup для rollback
-
-      setMaterials(materials.filter((m) => m.id !== id));
-
-      // Обновляем totalRecords для pagination
-      setTotalRecords(prev => Math.max(0, prev - 1));
-
       try {
-        // Реальный API call
-        await materialsAPI.delete(id);
-        success('Материал успешно удален', deletedMaterial?.name);
+          if (editMode) {
+              await updateMaterial(currentMaterial.id, currentMaterial);
+          } else {
+              await createMaterial(currentMaterial);
+          }
+          handleCloseDialog();
       } catch (err) {
-        // ROLLBACK: восстанавливаем удаленный материал
-        setMaterials(previousMaterials);
-        setTotalRecords(prev => prev + 1); // Восстанавливаем count
-        console.error('Error deleting material:', err);
-        showError('Ошибка при удалении материала', err.response?.data?.message);
+          // Error handled in hook
       }
-    }
   };
 
-  // Удалить материал из модалки (OPTIMISTIC DELETE)
+  const handleDelete = async (id) => {
+      if (window.confirm('Вы уверены, что хотите удалить этот материал?')) {
+          await deleteMaterial(id, materials.find(m => m.id === id)?.name);
+      }
+  };
+
   const handleDeleteFromDialog = async () => {
-    if (currentMaterial.id && window.confirm('Вы уверены, что хотите удалить этот материал?')) {
-      const deletedId = currentMaterial.id;
-      const deletedName = currentMaterial.name;
-      const previousMaterials = [...materials]; // Backup для rollback
-
-      // OPTIMISTIC DELETE: удаляем мгновенно
-      setMaterials(materials.filter((m) => m.id !== deletedId));
-      handleCloseDialog();
-
-      // Обновляем totalRecords
-      setTotalRecords(prev => Math.max(0, prev - 1));
-
-      try {
-        // Реальный API call
-        await materialsAPI.delete(deletedId);
-        success('Материал успешно удален', deletedName);
-      } catch (err) {
-        // ROLLBACK: восстанавливаем
-        setMaterials(previousMaterials);
-        setTotalRecords(prev => prev + 1);
-        console.error('Error deleting material:', err);
-        showError('Ошибка при удалении материала', err.response?.data?.message);
+      if (currentMaterial.id && window.confirm('Вы уверены, что хотите удалить этот материал?')) {
+          await deleteMaterial(currentMaterial.id, currentMaterial.name);
+          handleCloseDialog();
       }
-    }
   };
 
-  // Изменить поле материала
   const handleFieldChange = (field, value) => {
     setCurrentMaterial({ ...currentMaterial, [field]: value });
   };
@@ -1089,7 +649,7 @@ const MaterialsReferencePage = () => {
 
         {/* Таблица материалов или карточки - занимает оставшееся пространство */}
         <Box sx={{ flex: 1, minHeight: 0, height: '100%', display: 'flex', flexDirection: 'column' }}>
-          {filteredMaterials.length > 0 ? (
+          {materials.length > 0 ? (
             isMobile ? (
               // 📱 Мобильная версия - карточки с автозагрузкой
               <Box
@@ -1097,7 +657,7 @@ const MaterialsReferencePage = () => {
                 ref={scrollContainerRef}
                 sx={{ flex: 1, overflow: 'auto' }}
               >
-                {filteredMaterials.map((material) => (
+                {materials.map((material) => (
                   <Box key={material.id} sx={{ mb: 1.5 }}>
                     <Card sx={{ width: '100%', border: '1px solid #E5E7EB', boxShadow: 'none' }}>
                       <CardContent sx={{ p: 2, pb: 1, '&:last-child': { pb: 1 } }}>
@@ -1203,7 +763,7 @@ const MaterialsReferencePage = () => {
                               </IconButton>
                               <IconButton
                                 size="small"
-                                onClick={() => handleDeleteMaterial(material.id)}
+                                onClick={() => handleDelete(material.id)}
                                 sx={{ color: '#EF4444', '&:hover': { color: '#DC2626', bgcolor: '#FEF2F2' } }}
                               >
                                 <IconTrash size={16} />
@@ -1227,200 +787,25 @@ const MaterialsReferencePage = () => {
                 )}
 
                 {/* Сообщение когда всё загружено */}
-                {!hasMore && filteredMaterials.length > 0 && (
+                {!hasMore && materials.length > 0 && (
                   <Typography sx={{ textAlign: 'center', py: 2, color: '#9CA3AF', fontSize: '0.875rem' }}>
-                    {searchTerm ? `Найдено: ${filteredMaterials.length}` : `Загружено всё (${filteredMaterials.length} из ${totalRecords})`}
+                    {searchTerm ? `Найдено: ${materials.length}` : `Загружено всё (${materials.length} из ${totalRecords})`}
                   </Typography>
                 )}
               </Box>
             ) : (
               // 🖥️ Десктопная версия - таблица с автозагрузкой
-              <Paper
-                id="materials-table-container"
-                ref={scrollContainerRef}
-                elevation={0}
-                sx={{
-                  border: '1px solid #E5E7EB',
-                  borderRadius: '8px',
-                  height: '100%',
-                  overflow: 'auto'
-                }}
-              >
-                <TableContainer>
-                  <Table sx={{ tableLayout: 'fixed', width: '100%' }}>
-                    <TableHead>
-                      <TableRow sx={{ bgcolor: '#F9FAFB' }}>
-                        <TableCell sx={{ width: '100px', fontWeight: 500, fontSize: '0.75rem', color: '#374151', py: 1.25, pl: 2, borderBottom: '1px solid #E5E7EB' }}>
-                          Артикул
-                        </TableCell>
-                        <TableCell sx={{ fontWeight: 500, fontSize: '0.75rem', color: '#374151', py: 1.25, borderBottom: '1px solid #E5E7EB' }}>
-                          Наименование
-                        </TableCell>
-                        {showImageColumn && (
-                          <TableCell align="center" sx={{ width: '60px', fontWeight: 500, fontSize: '0.75rem', color: '#374151', py: 1.25, borderBottom: '1px solid #E5E7EB' }}>
-                            Фото
-                          </TableCell>
-                        )}
-                        <TableCell align="center" sx={{ width: '60px', fontWeight: 500, fontSize: '0.75rem', color: '#374151', py: 1.25, borderBottom: '1px solid #E5E7EB' }}>
-                          Ед.
-                        </TableCell>
-                        <TableCell align="right" sx={{ width: '90px', fontWeight: 500, fontSize: '0.75rem', color: '#374151', py: 1.25, borderBottom: '1px solid #E5E7EB' }}>
-                          Цена
-                        </TableCell>
-                        {showSupplierColumn && (
-                          <TableCell sx={{ width: '100px', fontWeight: 500, fontSize: '0.75rem', color: '#374151', py: 1.25, borderBottom: '1px solid #E5E7EB' }}>
-                            Поставщик
-                          </TableCell>
-                        )}
-                        <TableCell align="center" sx={{ width: '70px', fontWeight: 500, fontSize: '0.75rem', color: '#374151', py: 1.25, borderBottom: '1px solid #E5E7EB' }}>
-                          Вес
-                        </TableCell>
-                        <TableCell sx={{ width: '100px', fontWeight: 500, fontSize: '0.75rem', color: '#374151', py: 1.25, borderBottom: '1px solid #E5E7EB' }}>
-                          Категория
-                        </TableCell>
-                        <TableCell align="center" sx={{ width: '90px', fontWeight: 500, fontSize: '0.75rem', color: '#374151', py: 1.25, pr: 2, borderBottom: '1px solid #E5E7EB' }}>
-                          Действия
-                        </TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {filteredMaterials.map((material) => (
-                        <TableRow key={material.id} sx={{ '&:hover': { bgcolor: '#F3F4F6' } }}>
-                          <TableCell sx={{ width: '100px', py: 1.25, pl: 2, borderBottom: '1px solid #F3F4F6' }}>
-                            <Typography sx={{ fontSize: '0.8125rem', fontWeight: 500, color: '#374151', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                              <HighlightText text={material.sku} query={searchTerm} />
-                            </Typography>
-                          </TableCell>
-                          <TableCell sx={{ py: 1.25, borderBottom: '1px solid #F3F4F6' }}>
-                            <Stack direction="row" alignItems="center" spacing={1}>
-                              <Tooltip title={material.isGlobal ? 'Глобальный материал' : 'Материал компании'}>
-                                {material.isGlobal ? (
-                                  <IconWorld size={14} style={{ color: '#9CA3AF', flexShrink: 0 }} />
-                                ) : (
-                                  <IconBuilding size={14} style={{ color: '#9CA3AF', flexShrink: 0 }} />
-                                )}
-                              </Tooltip>
-                              <Typography sx={{ fontSize: '0.8125rem', color: '#374151', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                <HighlightText text={material.name} query={searchTerm} />
-                              </Typography>
-                              {material._optimistic && (
-                                <Chip
-                                  label="Сохраняется..."
-                                  size="small"
-                                  color="warning"
-                                  sx={{ animation: 'pulse 1.5s infinite' }}
-                                />
-                              )}
-                            </Stack>
-                          </TableCell>
-                          {showImageColumn && (
-                            <TableCell align="center" sx={{ width: '60px', py: 1.25, borderBottom: '1px solid #F3F4F6' }}>
-                              {material.showImage && material.image ? (
-                                <Box
-                                  component="img"
-                                  src={material.image}
-                                  alt={material.name}
-                                  sx={{
-                                    width: 35,
-                                    height: 35,
-                                    objectFit: 'cover',
-                                    borderRadius: '4px',
-                                    border: '1px solid #E5E7EB'
-                                  }}
-                                />
-                              ) : (
-                                <Typography sx={{ fontSize: '0.75rem', color: '#9CA3AF' }}>
-                                  —
-                                </Typography>
-                              )}
-                            </TableCell>
-                          )}
-                          <TableCell align="center" sx={{ width: '60px', py: 1.25, borderBottom: '1px solid #F3F4F6' }}>
-                            <Typography sx={{ fontSize: '0.8125rem', color: '#374151' }}>{material.unit}</Typography>
-                          </TableCell>
-                          <TableCell align="right" sx={{ width: '90px', py: 1.25, borderBottom: '1px solid #F3F4F6' }}>
-                            <Typography sx={{ fontSize: '0.8125rem', fontWeight: 500, color: '#374151' }}>
-                              {formatPrice(material.price)}
-                            </Typography>
-                          </TableCell>
-                          {showSupplierColumn && (
-                            <TableCell sx={{ width: '100px', py: 1.25, borderBottom: '1px solid #F3F4F6' }}>
-                              <Typography sx={{ fontSize: '0.8125rem', color: '#6B7280', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{material.supplier}</Typography>
-                            </TableCell>
-                          )}
-                          <TableCell align="center" sx={{ width: '70px', py: 1.25, borderBottom: '1px solid #F3F4F6' }}>
-                            <Typography sx={{ fontSize: '0.8125rem', color: '#374151' }}>{material.weight}</Typography>
-                          </TableCell>
-                          <TableCell sx={{ width: '100px', py: 1.25, borderBottom: '1px solid #F3F4F6' }}>
-                            <Chip
-                              label={material.category}
-                              size="small"
-                              sx={{
-                                height: 22,
-                                fontSize: '0.625rem',
-                                bgcolor: '#F3F4F6',
-                                color: '#6B7280',
-                                border: '1px solid #E5E7EB',
-                                maxWidth: '100%',
-                                '& .MuiChip-label': { overflow: 'hidden', textOverflow: 'ellipsis' }
-                              }}
-                            />
-                          </TableCell>
-                          <TableCell align="center" sx={{ width: '90px', py: 1.25, pr: 2, borderBottom: '1px solid #F3F4F6' }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5 }}>
-                              {material.productUrl && (
-                                <IconButton
-                                  size="small"
-                                  href={material.productUrl}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  sx={{ width: 26, height: 26, color: '#6B7280', '&:hover': { color: '#374151', bgcolor: '#F3F4F6' } }}
-                                >
-                                  <IconExternalLink size={14} />
-                                </IconButton>
-                              )}
-                              <IconButton
-                                size="small"
-                                onClick={() => handleOpenEdit(material)}
-                                sx={{ width: 26, height: 26, color: '#6B7280', '&:hover': { color: '#374151', bgcolor: '#F3F4F6' } }}
-                              >
-                                <IconEdit size={14} />
-                              </IconButton>
-                              <IconButton
-                                size="small"
-                                onClick={() => handleDeleteMaterial(material.id)}
-                                sx={{ width: 26, height: 26, color: '#EF4444', '&:hover': { color: '#DC2626', bgcolor: '#FEF2F2' } }}
-                              >
-                                <IconTrash size={14} />
-                              </IconButton>
-                            </Box>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-
-                      {/* Триггер для автозагрузки через Intersection Observer */}
-                      {hasMore && (
-                        <TableRow ref={loadMoreTriggerRef}>
-                          <TableCell colSpan={6} sx={{ py: 2, textAlign: 'center', borderBottom: 'none', height: '40px' }}>
-                            {loading && <CircularProgress size={20} thickness={4} sx={{ color: '#3B82F6' }} />}
-                          </TableCell>
-                        </TableRow>
-                      )}
-
-                      {/* Сообщение когда всё загружено */}
-                      {!hasMore && filteredMaterials.length > 0 && (
-                        <TableRow>
-                          <TableCell colSpan={6} sx={{ py: 2, textAlign: 'center', borderBottom: 'none' }}>
-                            <Typography sx={{ color: '#9CA3AF', fontSize: '0.875rem' }}>
-                              {searchTerm ? `Найдено: ${filteredMaterials.length}` : `Все данные загружены (${filteredMaterials.length} из ${totalRecords})`}
-                            </Typography>
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-              </Paper>
+              <MaterialsTable
+                materials={materials}
+                onEdit={handleOpenEdit}
+                onDelete={handleDelete}
+                isLoading={loading}
+                hasMore={hasMore}
+                loadMoreTriggerRef={loadMoreTriggerRef}
+                searchTerm={searchTerm}
+                showImageColumn={showImageColumn}
+                showSupplierColumn={showSupplierColumn}
+              />
             )
           ) : materials.length === 0 ? (
             <EmptyState onCreateClick={handleOpenCreate} />

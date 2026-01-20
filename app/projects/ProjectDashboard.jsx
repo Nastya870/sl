@@ -8,12 +8,6 @@ import Button from '@mui/material/Button';
 import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
 import Paper from '@mui/material/Paper';
-import Table from '@mui/material/Table';
-import TableBody from '@mui/material/TableBody';
-import TableCell from '@mui/material/TableCell';
-import TableContainer from '@mui/material/TableContainer';
-import TableHead from '@mui/material/TableHead';
-import TableRow from '@mui/material/TableRow';
 import CircularProgress from '@mui/material/CircularProgress';
 import Alert from '@mui/material/Alert';
 import Menu from '@mui/material/Menu';
@@ -44,19 +38,29 @@ import { projectsAPI } from 'api/projects';
 import { estimatesAPI } from 'api/estimatesAPI';
 import { useProjectDashboard } from 'hooks/useProjectDashboard';
 import { useNotifications } from 'contexts/NotificationsContext';
+import { EstimatesTable } from 'app/widgets';
+import { useEstimatesTableData } from 'app/features/estimates/useEstimatesTableData';
 
 const ProjectDashboard = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   
+  // Keep useProjectDashboard for project details and financial summary
   const { 
     project, 
-    estimates, 
     financialSummary,
     isLoading: loading, 
     error: loadError,
-    refresh 
+    refresh: refreshDashboard
   } = useProjectDashboard(id);
+
+  // Use new feature hook for estimates
+  const { estimates, refresh: refreshEstimates } = useEstimatesTableData(id);
+
+  const refresh = () => {
+    refreshDashboard();
+    refreshEstimates();
+  };
   
   const [openDialog, setOpenDialog] = useState(false);
   const [currentProject, setCurrentProject] = useState(emptyProject);
@@ -307,50 +311,12 @@ const ProjectDashboard = () => {
               <Typography sx={{ fontSize: '0.75rem', color: '#9CA3AF', ml: 'auto' }}>{estimates.length} смет</Typography>
             </Box>
 
-            <TableContainer>
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell sx={{ py: 1, fontSize: '0.6875rem', color: '#6B7280', fontWeight: 600, textTransform: 'uppercase', borderBottom: '1px solid #E5E7EB' }}>№</TableCell>
-                    <TableCell sx={{ py: 1, fontSize: '0.6875rem', color: '#6B7280', fontWeight: 600, textTransform: 'uppercase', borderBottom: '1px solid #E5E7EB' }}>Название</TableCell>
-                    <TableCell sx={{ py: 1, fontSize: '0.6875rem', color: '#6B7280', fontWeight: 600, textTransform: 'uppercase', borderBottom: '1px solid #E5E7EB' }}>Дата</TableCell>
-                    <TableCell align="center" sx={{ py: 1, fontSize: '0.6875rem', color: '#6B7280', fontWeight: 600, textTransform: 'uppercase', borderBottom: '1px solid #E5E7EB' }}>Статус</TableCell>
-                    <TableCell align="center" sx={{ py: 1, borderBottom: '1px solid #E5E7EB', width: 50 }}></TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {estimates.length > 0 ? estimates.map((estimate, index) => {
-                    const statusStyle = getEstimateStatusStyle(estimate.status || 'draft');
-                    return (
-                      <TableRow key={estimate.id} hover sx={{ cursor: 'pointer', '&:last-child td': { border: 0 }, '&:hover': { bgcolor: '#F9FAFB' } }}
-                        onClick={() => navigate(`/app/projects/${id}/estimates/${estimate.id}`)}>
-                        <TableCell sx={{ py: 1.5, fontSize: '0.8125rem', color: '#6B7280', verticalAlign: 'middle' }}>{index + 1}</TableCell>
-                        <TableCell sx={{ py: 1.5, fontSize: '0.875rem', color: '#111827', fontWeight: 500, verticalAlign: 'middle' }}>{estimate.name}</TableCell>
-                        <TableCell sx={{ py: 1.5, fontSize: '0.8125rem', color: '#6B7280', verticalAlign: 'middle' }}>{formatDate(estimate.created_at)}</TableCell>
-                        <TableCell align="center" sx={{ py: 1.5, verticalAlign: 'middle' }}>
-                          <Box onClick={(e) => handleOpenEstimateStatusMenu(e, estimate)}
-                            sx={{ display: 'inline-flex', px: 1, py: 0.375, borderRadius: '6px', fontSize: '0.75rem', fontWeight: 500, bgcolor: statusStyle.bg, color: statusStyle.color, cursor: 'pointer', '&:hover': { opacity: 0.8 } }}>
-                            {statusStyle.label}
-                          </Box>
-                        </TableCell>
-                        <TableCell align="center" sx={{ py: 1.5, verticalAlign: 'middle' }}>
-                          <IconButton size="small" onClick={(e) => handleDeleteEstimate(estimate.id, e)}
-                            sx={{ color: '#9CA3AF', p: 0.5, opacity: 0.5, lineHeight: 1, '&:hover': { color: '#EF4444', bgcolor: '#FEF2F2', opacity: 1 } }}>
-                            <IconTrash size={14} />
-                          </IconButton>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  }) : (
-                    <TableRow>
-                      <TableCell colSpan={5} align="center" sx={{ py: 4 }}>
-                        <Typography sx={{ fontSize: '0.875rem', color: '#9CA3AF' }}>Смет пока нет</Typography>
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </TableContainer>
+            <EstimatesTable
+              estimates={estimates}
+              onRowClick={(estimate) => navigate(`/app/projects/${id}/estimates/${estimate.id}`)}
+              onDelete={handleDeleteEstimate}
+              onStatusClick={handleOpenEstimateStatusMenu}
+            />
           </Paper>
         </Grid>
 
