@@ -7,29 +7,10 @@ import Tooltip from '@mui/material/Tooltip';
 import {
   IconEdit,
   IconTrash,
-  IconShield,
-  IconCircleCheck,
-  IconCircleX
+  IconShield
 } from '@tabler/icons-react';
-import { DataTable } from 'app/widgets';
-
-const getRoleNames = (roles) => {
-    if (!roles || roles.length === 0) return 'Нет ролей';
-
-    const roleMap = {
-      super_admin: 'Супер Админ',
-      admin: 'Админ',
-      manager: 'Менеджер',
-      estimator: 'Сметчик',
-      supplier: 'Снабженец'
-    };
-
-    return roles.map((role) => roleMap[role.name] || role.name).join(', ');
-};
-
-const getRoleBadgeStyle = (roles) => {
-    return { bgcolor: '#F3E8FF', color: '#6D28D9' };
-};
+import DataTable from '../DataTable';
+import { UserRoleBadge, UserStatusBadge } from 'app/entities/user';
 
 const UsersTable = ({ users, onManageRoles, onEdit, onDelete, isLoading, emptyText }) => {
   const columns = [
@@ -64,62 +45,13 @@ const UsersTable = ({ users, onManageRoles, onEdit, onDelete, isLoading, emptyTe
       id: 'roles',
       label: 'Роли',
       render: (row) => (
-        <Box
-          sx={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            borderRadius: '6px',
-            px: '8px',
-            py: '3px',
-            fontSize: '12px',
-            fontWeight: 500,
-            ...getRoleBadgeStyle(row.roles)
-          }}
-        >
-          {getRoleNames(row.roles)}
-        </Box>
+        <UserRoleBadge roles={row.roles} />
       )
     },
     {
       id: 'isActive',
       label: 'Статус',
-      render: (row) => row.isActive ? (
-          <Box
-            sx={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '4px',
-              bgcolor: '#DCFCE7',
-              color: '#15803D',
-              borderRadius: '6px',
-              px: '8px',
-              py: '3px',
-              fontSize: '12px',
-              fontWeight: 500
-            }}
-          >
-            <IconCircleCheck size={14} style={{ color: '#15803D' }} />
-            Активен
-          </Box>
-        ) : (
-          <Box
-            sx={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '4px',
-              bgcolor: '#F3F4F6',
-              color: '#6B7280',
-              borderRadius: '6px',
-              px: '8px',
-              py: '3px',
-              fontSize: '12px',
-              fontWeight: 500
-            }}
-          >
-            <IconCircleX size={14} />
-            Неактивен
-          </Box>
-        )
+      render: (row) => <UserStatusBadge isActive={row.isActive} />
     },
     {
       id: 'actions',

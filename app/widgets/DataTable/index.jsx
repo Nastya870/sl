@@ -21,7 +21,8 @@ const DataTable = ({
   sx = {},
   stickyHeader = false,
   containerSx = {},
-  onRowClick
+  onRowClick,
+  renderRow
 }) => {
   return (
     <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid #E5E7EB', borderRadius: '8px', overflowX: 'auto', ...containerSx }}>
@@ -59,6 +60,12 @@ const DataTable = ({
              </TableRow>
           ) : data.length > 0 ? (
             data.map((row, index) => {
+              // Custom Row Rendering (e.g. for Group Headers)
+              if (renderRow) {
+                  const customRow = renderRow(row, index, columns);
+                  if (customRow) return customRow;
+              }
+
               const key = typeof rowKey === 'function' ? rowKey(row) : row[rowKey];
               return (
                 <TableRow
@@ -128,7 +135,8 @@ DataTable.propTypes = {
   sx: PropTypes.object,
   stickyHeader: PropTypes.bool,
   containerSx: PropTypes.object,
-  onRowClick: PropTypes.func
+  onRowClick: PropTypes.func,
+  renderRow: PropTypes.func
 };
 
 export default DataTable;

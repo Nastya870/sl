@@ -1,21 +1,9 @@
 import React from 'react';
 import PropTypes from 'prop-types';
-import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
 import { IconTrash } from '@tabler/icons-react';
-import { DataTable } from 'app/widgets';
-import { formatDate } from 'app/projects/utils';
-
-const estimateStatuses = [
-    { value: 'draft', label: 'Черновик', color: '#6B7280', bg: '#F3F4F6' },
-    { value: 'approved', label: 'Утверждена', color: '#16A34A', bg: '#E6FCEB' },
-    { value: 'in_progress', label: 'В работе', color: '#4F46E5', bg: '#EEF2FF' }
-];
-
-const getEstimateStatusStyle = (status) => {
-    const s = estimateStatuses.find(st => st.value === status) || estimateStatuses[0];
-    return { color: s.color, bg: s.bg, label: s.label };
-};
+import DataTable from '../DataTable';
+import { formatDate, EstimateStatusChip } from 'app/entities/estimate';
 
 const EstimatesTable = ({ estimates, onRowClick, onDelete, onStatusClick }) => {
   const columns = [
@@ -42,31 +30,12 @@ const EstimatesTable = ({ estimates, onRowClick, onDelete, onStatusClick }) => {
       id: 'status',
       label: 'Статус',
       align: 'center',
-      render: (row) => {
-        const statusStyle = getEstimateStatusStyle(row.status || 'draft');
-        return (
-          <Box
-            onClick={(e) => {
-               e.stopPropagation();
-               onStatusClick && onStatusClick(e, row);
-            }}
-            sx={{
-              display: 'inline-flex',
-              px: 1,
-              py: 0.375,
-              borderRadius: '6px',
-              fontSize: '0.75rem',
-              fontWeight: 500,
-              bgcolor: statusStyle.bg,
-              color: statusStyle.color,
-              cursor: 'pointer',
-              '&:hover': { opacity: 0.8 }
-            }}
-          >
-            {statusStyle.label}
-          </Box>
-        );
-      }
+      render: (row) => (
+          <EstimateStatusChip
+            status={row.status}
+            onClick={(e) => onStatusClick && onStatusClick(e, row)}
+          />
+      )
     },
     {
       id: 'actions',

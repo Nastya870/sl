@@ -152,10 +152,6 @@ const datePickerSlotProps = {
 // ==============================|| GLOBAL PURCHASES ||============================== //
 
 const GlobalPurchases = () => {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [purchases, setPurchases] = useState([]);
-  const [statistics, setStatistics] = useState(null);
   const [projects, setProjects] = useState([]);
   const [exportAnchorEl, setExportAnchorEl] = useState(null);
   const [exportingServerCSV, setExportingServerCSV] = useState(false);
@@ -179,6 +175,20 @@ const GlobalPurchases = () => {
     dateTo: ''
   });
 
+  // Feature Hook
+  const {
+      purchases,
+      statistics,
+      loading,
+      error,
+      refresh: loadPurchases,
+      deletePurchase,
+      updatePurchase
+  } = usePurchasesTableData(filters);
+
+  // Calculate total spent
+  const totalSpent = purchases.reduce((sum, p) => sum + parseFloat(p.total_price || 0), 0);
+
   // Загрузка проектов для фильтра
   useEffect(() => {
     const loadProjects = async () => {
@@ -194,32 +204,6 @@ const GlobalPurchases = () => {
     loadProjects();
   }, []);
 
-  // Загрузка закупок
-  const loadPurchases = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      const response = await globalPurchasesAPI.getAllGlobalPurchases(filters);
-      setPurchases(response.purchases || []);
-
-      // Загрузка статистики
-      const statsResponse = await globalPurchasesAPI.getStatistics(filters);
-      setStatistics(statsResponse.statistics);
-
-    } catch (err) {
-      console.error('❌ Ошибка загрузки закупок:', err);
-      console.error('   Детали:', err.response?.data);
-      setError('Не удалось загрузить закупки');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadPurchases();
-  }, [filters.projectId, filters.dateFrom, filters.dateTo]); // Явные зависимости
-
   const handleFilterChange = (field, value) => {
     setFilters(prev => ({ ...prev, [field]: value }));
   };
@@ -232,11 +216,10 @@ const GlobalPurchases = () => {
     if (!window.confirm('Удалить эту закупку?')) return;
 
     try {
-      await globalPurchasesAPI.deleteGlobalPurchase(id);
-      loadPurchases(); // Обновляем список
+      await deletePurchase(id);
     } catch (err) {
       console.error('Ошибка удаления закупки:', err);
-      setError('Не удалось удалить закупку');
+      showError('Не удалось удалить закупку');
     }
   };
 
@@ -333,30 +316,22 @@ const GlobalPurchases = () => {
       }
 
       if (isNaN(purchasePrice) || purchasePrice < 0) {
-        setError('Цена не может быть отрицательной');
+        showError('Цена не может быть отрицательной');
         return;
       }
-      await globalPurchasesAPI.updateGlobalPurchase(editingPurchase.id, {
+      await updatePurchase(editingPurchase.id, {
         quantity,
         purchasePrice,
         purchaseDate: editFormData.purchaseDate
       });
 
-      // Обновляем список закупок
-      await loadPurchases();
-
       handleCloseEditDialog();
 
     } catch (err) {
       console.error('❌ Ошибка обновления закупки:', err);
-      setError('Не удалось обновить закупку');
-    } finally {
-      setLoading(false);
+      showError('Не удалось обновить закупку');
     }
   };
-
-  // Вычисляем общую сумму из закупок
-  const totalSpent = purchases.reduce((sum, p) => sum + parseFloat(p.total_price || 0), 0);
 
   return (
     <Box>

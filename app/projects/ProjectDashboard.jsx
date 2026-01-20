@@ -39,19 +39,28 @@ import { estimatesAPI } from 'api/estimatesAPI';
 import { useProjectDashboard } from 'hooks/useProjectDashboard';
 import { useNotifications } from 'contexts/NotificationsContext';
 import { EstimatesTable } from 'app/widgets';
+import { useEstimatesTableData } from 'app/features/estimates/useEstimatesTableData';
 
 const ProjectDashboard = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   
+  // Keep useProjectDashboard for project details and financial summary
   const { 
     project, 
-    estimates, 
     financialSummary,
     isLoading: loading, 
     error: loadError,
-    refresh 
+    refresh: refreshDashboard
   } = useProjectDashboard(id);
+
+  // Use new feature hook for estimates
+  const { estimates, refresh: refreshEstimates } = useEstimatesTableData(id);
+
+  const refresh = () => {
+    refreshDashboard();
+    refreshEstimates();
+  };
   
   const [openDialog, setOpenDialog] = useState(false);
   const [currentProject, setCurrentProject] = useState(emptyProject);

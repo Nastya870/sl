@@ -1,26 +1,21 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 
 // material-ui
 import { useTheme } from '@mui/material/styles';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Paper from '@mui/material/Paper';
-import Chip from '@mui/material/Chip';
-import IconButton from '@mui/material/IconButton';
 import InputAdornment from '@mui/material/InputAdornment';
 import TextField from '@mui/material/TextField';
-import Stack from '@mui/material/Stack';
 import TablePagination from '@mui/material/TablePagination';
 import Typography from '@mui/material/Typography';
 import Alert from '@mui/material/Alert';
-import CircularProgress from '@mui/material/CircularProgress';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
 
 // project imports
-import { getAllUsers, deleteUser } from 'api/users';
 import UserDialog from './UserDialog';
 import RolesDialog from './RolesDialog';
 import { UsersTable } from 'app/widgets';
@@ -37,62 +32,30 @@ import {
 const UsersManagement = () => {
   const theme = useTheme();
 
-  // State
-  const [users, setUsers] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [search, setSearch] = useState('');
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(25);
-  const [totalUsers, setTotalUsers] = useState(0);
+  // Feature Hook
+  const {
+      users,
+      loading,
+      error,
+      page,
+      rowsPerPage,
+      totalUsers,
+      search,
+      handleSearchChange,
+      handleChangePage,
+      handleChangeRowsPerPage,
+      handleDeleteUser,
+      refresh
+  } = useUsersTableData();
 
   // Dialogs
   const [userDialogOpen, setUserDialogOpen] = useState(false);
   const [rolesDialogOpen, setRolesDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
-
-  // Fetch users
-  const fetchUsers = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const response = await getAllUsers({
-        page: page + 1,
-        pageSize: rowsPerPage,
-        search
-      });
-
-      setUsers(response.data || []);
-      setTotalUsers(response.total || 0);
-    } catch (err) {
-      console.error('Error fetching users:', err);
-      setError(err.response?.data?.message || 'Ошибка загрузки пользователей');
-    } finally {
-      setLoading(false);
-    }
-  }, [page, rowsPerPage, search]);
-
-  useEffect(() => {
-    fetchUsers();
-  }, [fetchUsers]);
+  const [actionError, setActionError] = useState(null);
 
   // Handlers
-  const handleSearchChange = (event) => {
-    setSearch(event.target.value);
-    setPage(0);
-  };
-
-  const handleChangePage = (event, newPage) => {
-    setPage(newPage);
-  };
-
-  const handleChangeRowsPerPage = (event) => {
-    setRowsPerPage(parseInt(event.target.value, 10));
-    setPage(0);
-  };
-
   const handleCreateUser = () => {
     setSelectedUser(null);
     setUserDialogOpen(true);
@@ -117,26 +80,25 @@ const UsersManagement = () => {
     if (!selectedUser) return;
 
     try {
-      await deleteUser(selectedUser.id);
+      await handleDeleteUser(selectedUser.id);
       setDeleteDialogOpen(false);
       setSelectedUser(null);
-      fetchUsers();
     } catch (err) {
       console.error('Error deleting user:', err);
-      setError(err.response?.data?.message || 'Ошибка удаления пользователя');
+      setActionError(err.response?.data?.message || 'Ошибка удаления пользователя');
     }
   };
 
   const handleUserSaved = () => {
     setUserDialogOpen(false);
     setSelectedUser(null);
-    fetchUsers();
+    refresh();
   };
 
   const handleRolesSaved = () => {
     setRolesDialogOpen(false);
     setSelectedUser(null);
-    fetchUsers();
+    refresh();
   };
 
   return (
