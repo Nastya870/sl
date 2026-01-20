@@ -6,12 +6,6 @@ import {
   Box,
   Typography,
   Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
-  TableFooter,
   Button,
   Stack,
   Divider,
@@ -52,6 +46,7 @@ import projectsAPI from 'api/projects';
 
 // utils
 import { formatCurrency } from 'utils/formatters';
+import { PurchasesTable } from 'app/widgets';
 import { exportToCSV, exportToExcel, exportToPDF } from 'utils/purchasesExport';
 import ImportDialog from 'shared/ui/components/ImportDialog';
 import { useNotifications } from 'contexts/NotificationsContext';
@@ -675,231 +670,13 @@ const GlobalPurchases = () => {
               </Typography>
             </Box>
           ) : (
-            <Box sx={{ overflowX: 'auto' }}>
-              <Table size="small">
-                <TableHead>
-                  <TableRow sx={{ bgcolor: '#F9FAFB' }}>
-                    <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280', py: 1.25, borderBottom: '1px solid #E5E7EB' }}>Смета</TableCell>
-                    <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280', py: 1.25, borderBottom: '1px solid #E5E7EB' }}>Материал</TableCell>
-                    <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280', py: 1.25, width: 56, borderBottom: '1px solid #E5E7EB' }}>Фото</TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280', py: 1.25, borderBottom: '1px solid #E5E7EB' }}>Кол-во</TableCell>
-                    <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280', py: 1.25, borderBottom: '1px solid #E5E7EB' }}>Ед.</TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280', py: 1.25, borderBottom: '1px solid #E5E7EB' }}>Цена</TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280', py: 1.25, borderBottom: '1px solid #E5E7EB' }}>Сумма</TableCell>
-                    <TableCell align="center" sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280', py: 1.25, width: 80, borderBottom: '1px solid #E5E7EB' }}></TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {(() => {
-                    const groupedPurchases = purchases.reduce((acc, purchase) => {
-                      const projectName = purchase.project_name || 'Без проекта';
-                      if (!acc[projectName]) {
-                        acc[projectName] = { projectId: purchase.project_id, purchases: [], total: 0 };
-                      }
-                      acc[projectName].purchases.push(purchase);
-                      acc[projectName].total += parseFloat(purchase.total_price || 0);
-                      return acc;
-                    }, {});
-
-                    return Object.entries(groupedPurchases).map(([projectName, data], groupIndex) => (
-                      <React.Fragment key={projectName}>
-                        <TableRow>
-                          <TableCell
-                            colSpan={8}
-                            sx={{
-                              bgcolor: '#F3F4F6',
-                              borderLeft: '3px solid #6366F1',
-                              py: 1,
-                              borderBottom: '1px solid #E5E7EB'
-                            }}
-                          >
-                            <Stack direction="row" justifyContent="space-between" alignItems="center">
-                              <Stack direction="row" alignItems="center" spacing={1.5}>
-                                <Box
-                                  sx={{
-                                    width: 22,
-                                    height: 22,
-                                    borderRadius: '4px',
-                                    bgcolor: '#6366F1',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    color: 'white',
-                                    fontSize: '0.6875rem',
-                                    fontWeight: 700
-                                  }}
-                                >
-                                  {groupIndex + 1}
-                                </Box>
-                                <Typography sx={{ fontWeight: 600, color: '#374151', fontSize: '0.8125rem' }}>
-                                  {projectName}
-                                </Typography>
-                                <Chip
-                                  label={`${data.purchases.length} поз.`}
-                                  size="small"
-                                  sx={{ height: 18, fontSize: '0.75rem', bgcolor: '#F3F4F6', color: '#6B7280', fontWeight: 500, border: '1px solid #E5E7EB' }}
-                                />
-                              </Stack>
-                            </Stack>
-                          </TableCell>
-                        </TableRow>
-
-                        {data.purchases.map((purchase) => (
-                          <TableRow
-                            key={purchase.id}
-                            hover
-                            sx={{
-                              '&:hover': { bgcolor: '#FAFAFA' },
-                              '& .MuiTableCell-root': { verticalAlign: 'middle' }
-                            }}
-                          >
-                            <TableCell sx={{ py: 1, maxWidth: 160, borderBottom: '1px solid #F3F4F6' }}>
-                              <Typography noWrap sx={{ fontSize: '0.8125rem', color: '#4B5563' }}>
-                                {purchase.estimate_name || '—'}
-                              </Typography>
-                            </TableCell>
-                            <TableCell sx={{ py: 1, minWidth: 200, borderBottom: '1px solid #F3F4F6' }}>
-                              <Stack direction="row" alignItems="center" spacing={0.75}>
-                                {purchase.is_extra_charge && (
-                                  <Chip
-                                    label="О/Ч"
-                                    size="small"
-                                    sx={{ height: 18, fontSize: '0.5625rem', bgcolor: '#FEF3C7', color: '#92400E' }}
-                                  />
-                                )}
-                                <Box>
-                                  <Typography sx={{ fontWeight: 500, fontSize: '0.8125rem', color: '#374151' }}>
-                                    {purchase.material_name}
-                                  </Typography>
-                                  {purchase.material_sku && (
-                                    <Typography sx={{ color: '#9CA3AF', fontSize: '0.6875rem', lineHeight: 1.2, display: 'block' }}>
-                                      Арт: {purchase.material_sku}
-                                    </Typography>
-                                  )}
-                                  {/* Иерархические категории */}
-                                  <Box sx={{ mt: 0.5 }}>
-
-                                    {purchase.category_full_path ? (
-                                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.25, alignItems: 'center' }}>
-                                        {purchase.category_full_path.split(' / ').map((part, idx, arr) => (
-                                          <React.Fragment key={idx}>
-                                            <Typography sx={{ fontSize: '0.65rem', color: idx === arr.length - 1 ? '#4F46E5' : '#9CA3AF', fontWeight: idx === arr.length - 1 ? 500 : 400 }}>
-                                              {part}
-                                            </Typography>
-                                            {idx < arr.length - 1 && (
-                                              <Typography sx={{ fontSize: '0.65rem', color: '#D1D5DB' }}>›</Typography>
-                                            )}
-                                          </React.Fragment>
-                                        ))}
-                                      </Box>
-                                    ) : (
-                                      <Typography sx={{ fontSize: '0.65rem', color: '#9CA3AF' }}>
-                                        {purchase.category || '—'}
-                                      </Typography>
-                                    )}
-                                  </Box>
-                                </Box>
-                              </Stack>
-                            </TableCell>
-                            <TableCell sx={{ py: 1, borderBottom: '1px solid #F3F4F6' }}>
-                              <Box
-                                sx={{
-                                  width: 40,
-                                  height: 40,
-                                  borderRadius: '4px',
-                                  border: '1px solid #E5E7EB',
-                                  overflow: 'hidden',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  bgcolor: '#F9FAFB'
-                                }}
-                              >
-                                {purchase.material_image ? (
-                                  <img
-                                    src={purchase.material_image}
-                                    alt={purchase.material_name}
-                                    style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-                                  />
-                                ) : (
-                                  <Typography sx={{ color: '#D1D5DB', fontSize: '0.625rem' }}>—</Typography>
-                                )}
-                              </Box>
-                            </TableCell>
-                            <TableCell align="right" sx={{ py: 1, borderBottom: '1px solid #F3F4F6' }}>
-                              <Typography sx={{ fontWeight: 600, fontSize: '0.8125rem', color: '#374151' }}>
-                                {parseFloat(purchase.quantity).toLocaleString('ru-RU', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
-                              </Typography>
-                            </TableCell>
-                            <TableCell sx={{ py: 1, borderBottom: '1px solid #F3F4F6' }}>
-                              <Typography sx={{ color: '#6B7280', fontSize: '0.8125rem' }}>
-                                {purchase.unit}
-                              </Typography>
-                            </TableCell>
-                            <TableCell align="right" sx={{ py: 1, borderBottom: '1px solid #F3F4F6' }}>
-                              <Typography sx={{ fontSize: '0.8125rem', color: '#4B5563' }}>
-                                {formatCurrency(purchase.purchase_price)}
-                              </Typography>
-                            </TableCell>
-                            <TableCell align="right" sx={{ py: 1, borderBottom: '1px solid #F3F4F6' }}>
-                              <Typography sx={{ fontWeight: 600, fontSize: '0.8125rem', color: '#059669' }}>
-                                {formatCurrency(purchase.total_price)}
-                              </Typography>
-                            </TableCell>
-                            <TableCell align="center" sx={{ py: 1, borderBottom: '1px solid #F3F4F6' }}>
-                              <Stack direction="row" spacing={1} justifyContent="center">
-                                <IconButton
-                                  size="small"
-                                  onClick={() => handleOpenEditDialog(purchase)}
-                                  title="Редактировать"
-                                  sx={{ width: 28, height: 28, color: '#6B7280', '&:hover': { bgcolor: '#F3F4F6', color: '#4B5563' } }}
-                                >
-                                  <IconEdit size={16} />
-                                </IconButton>
-                                <IconButton
-                                  size="small"
-                                  onClick={() => handleDelete(purchase.id)}
-                                  title="Удалить"
-                                  sx={{ width: 28, height: 28, color: '#EF4444', '&:hover': { bgcolor: '#FEF2F2', color: '#DC2626' } }}
-                                >
-                                  <IconTrash size={16} />
-                                </IconButton>
-                              </Stack>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </React.Fragment>
-                    ));
-                  })()}
-                </TableBody>
-
-                {/* Footer с итогом */}
-                {purchases.length > 0 && (
-                  <TableFooter>
-                    <TableRow>
-                      <TableCell
-                        colSpan={6}
-                        align="right"
-                        sx={{ bgcolor: '#F9FAFB', borderTop: '2px solid rgba(0,0,0,0.07)', pt: 2.5, pb: 2 }}
-                      >
-                        <Typography sx={{ fontWeight: 600, color: '#374151', fontSize: '0.875rem' }}>
-                          Итого по всем проектам:
-                        </Typography>
-                      </TableCell>
-                      <TableCell
-                        align="right"
-                        sx={{ bgcolor: '#F9FAFB', borderTop: '2px solid rgba(0,0,0,0.07)', pt: 2.5, pb: 2 }}
-                      >
-                        <Typography sx={{ fontWeight: 700, color: '#059669', fontSize: '1rem' }}>
-                          {formatCurrency(totalSpent)}
-                        </Typography>
-                      </TableCell>
-                      <TableCell sx={{ bgcolor: '#F9FAFB', borderTop: '2px solid rgba(0,0,0,0.07)', pt: 2.5, pb: 2 }} />
-                    </TableRow>
-                  </TableFooter>
-                )}
-              </Table>
-            </Box>
+            <PurchasesTable
+              purchases={purchases}
+              onEdit={handleEditClick}
+              onDelete={handleDelete}
+              totalSpent={totalSpent}
+              containerSx={{ border: 'none', borderRadius: 0, overflow: 'auto' }}
+            />
           )}
         </Box>
       </Paper>
